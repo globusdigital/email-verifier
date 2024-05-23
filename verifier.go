@@ -8,6 +8,7 @@ import (
 
 // Verifier is an email verifier. Create one by calling NewVerifier
 type Verifier struct {
+	mxCheckEnabled       bool                       // MX check enabled or disabled (enabled by default)
 	smtpCheckEnabled     bool                       // SMTP check enabled or disabled (disabled by default)
 	catchAllCheckEnabled bool                       // SMTP catchAll check enabled or disabled (enabled by default)
 	domainSuggestEnabled bool                       // whether suggest a most similar correct domain or not (disabled by default)
@@ -50,6 +51,7 @@ func init() {
 // NewVerifier creates a new email verifier
 func NewVerifier() *Verifier {
 	return &Verifier{
+		mxCheckEnabled:       true,
 		fromEmail:            defaultFromEmail,
 		helloName:            defaultHelloName,
 		catchAllCheckEnabled: true,
@@ -61,7 +63,6 @@ func NewVerifier() *Verifier {
 
 // Verify performs address, misc, mx and smtp checks
 func (v *Verifier) Verify(email string) (*Result, error) {
-
 	ret := Result{
 		Email:     email,
 		Reachable: reachableUnknown,
@@ -133,6 +134,19 @@ func (v *Verifier) EnableGravatarCheck() *Verifier {
 // DisableGravatarCheck disables check gravatar,
 func (v *Verifier) DisableGravatarCheck() *Verifier {
 	v.gravatarCheckEnabled = false
+	return v
+}
+
+// EnableMXCheck enables check MX record of a domain,
+// we check MX records by default.
+func (v *Verifier) EnableMXCheck() *Verifier {
+	v.mxCheckEnabled = true
+	return v
+}
+
+// DisableMXCheck disables check MX record.
+func (v *Verifier) DisableMXCheck() *Verifier {
+	v.mxCheckEnabled = false
 	return v
 }
 
@@ -208,7 +222,6 @@ func (v *Verifier) EnableAutoUpdateDisposable() *Verifier {
 func (v *Verifier) DisableAutoUpdateDisposable() *Verifier {
 	v.stopCurrentSchedule()
 	return v
-
 }
 
 // FromEmail sets the emails to use in the `MAIL FROM:` smtp command

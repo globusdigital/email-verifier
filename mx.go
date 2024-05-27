@@ -1,7 +1,7 @@
 package emailverifier
 
 import (
-	"fmt"
+	"context"
 	"net"
 )
 
@@ -12,17 +12,13 @@ type Mx struct {
 }
 
 // CheckMX will return the DNS MX records for the given domain name sorted by preference.
-func (v *Verifier) CheckMX(domain string) (*Mx, error) {
-	domain = domainToASCII(domain)
-	if !TopLevelDomainExists(domain) {
-		return nil, fmt.Errorf("TLD domain %q does not exist", domain)
-	}
-
+func (v *Verifier) CheckMX(ctx context.Context, domain string) (*Mx, error) {
 	if !v.mxCheckEnabled {
 		return &Mx{}, nil
 	}
 
-	mx, err := net.LookupMX(domain)
+	domain = domainToASCII(domain)
+	mx, err := net.DefaultResolver.LookupMX(ctx, domain)
 	if err != nil && len(mx) == 0 {
 		return nil, err
 	}

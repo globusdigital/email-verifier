@@ -1,23 +1,28 @@
 package emailverifier
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // Verifier is an email verifier. Create one by calling NewVerifier
 type Verifier struct {
-	mxCheckEnabled       bool                       // MX check enabled or disabled (enabled by default)
-	smtpCheckEnabled     bool                       // SMTP check enabled or disabled (disabled by default)
-	catchAllCheckEnabled bool                       // SMTP catchAll check enabled or disabled (enabled by default)
-	domainSuggestEnabled bool                       // whether suggest a most similar correct domain or not (disabled by default)
-	gravatarCheckEnabled bool                       // gravatar check enabled or disabled (disabled by default)
-	fromEmail            string                     // name to use in the `EHLO:` SMTP command, defaults to "user@example.org"
-	helloName            string                     // email to use in the `MAIL FROM:` SMTP command. defaults to `localhost`
-	schedule             *schedule                  // schedule represents a job schedule
-	proxyURI             string                     // use a SOCKS5 proxy to verify the email,
-	apiVerifiers         map[string]smtpAPIVerifier // currently support gmail & yahoo, further contributions are welcomed.
+	mxCheckEnabled         bool // MX check enabled or disabled (enabled by default)
+	smtpCheckEnabled       bool // SMTP check enabled or disabled (disabled by default)
+	catchAllCheckEnabled   bool // SMTP catchAll check enabled or disabled (enabled by default)
+	domainSuggestEnabled   bool // whether suggest a most similar correct domain or not (disabled by default)
+	gravatarCheckEnabled   bool // gravatar check enabled or disabled (disabled by default)
+	TopLevelDomainDisabled bool
+	fromEmail              string                     // name to use in the `EHLO:` SMTP command, defaults to "user@example.org"
+	helloName              string                     // email to use in the `MAIL FROM:` SMTP command. defaults to `localhost`
+	schedule               *schedule                  // schedule represents a job schedule
+	proxyURI               string                     // use a SOCKS5 proxy to verify the email,
+	apiVerifiers           map[string]smtpAPIVerifier // currently support gmail & yahoo, further contributions are welcomed.
 
 	// Timeouts
 	connectTimeout   time.Duration // Timeout for establishing connections
@@ -30,16 +35,17 @@ type Result struct {
 	Reachable    string    `json:"reachable"`      // an enumeration to describe whether the recipient address is real
 	Syntax       Syntax    `json:"syntax"`         // details about the email address syntax
 	SMTP         *SMTP     `json:"smtp"`           // details about the SMTP response of the email
-	Gravatar     *Gravatar `json:"gravatar"`       // whether or not have gravatar for the email
+	Gravatar     *Gravatar `json:"gravatar"`       // whether have gravatar for the email
 	Suggestion   string    `json:"suggestion"`     // domain suggestion when domain is misspelled
 	Disposable   bool      `json:"disposable"`     // is this a DEA (disposable email address)
 	RoleAccount  bool      `json:"role_account"`   // is account a role-based account
 	Free         bool      `json:"free"`           // is domain a free email domain
-	HasMxRecords bool      `json:"has_mx_records"` // whether or not MX-Records for the domain
+	HasMxRecords bool      `json:"has_mx_records"` // whether MX-Records for the domain
+	TLDExists    bool      `json:"tld_exists"`     // whether the TLD exists
 }
 
 // additional list of disposable domains set via users of this library
-var additionalDisposableDomains map[string]bool = map[string]bool{}
+var additionalDisposableDomains = map[string]bool{}
 
 // init loads disposable_domain meta data to disposableSyncDomains which are safe for concurrent use
 func init() {
@@ -61,8 +67,25 @@ func NewVerifier() *Verifier {
 	}
 }
 
+func (v *Verifier) enabledOptions() (c int) {
+	if v.mxCheckEnabled {
+		c++
+	}
+	if v.smtpCheckEnabled {
+		c++
+	}
+	if v.gravatarCheckEnabled {
+		c++
+	}
+	if v.domainSuggestEnabled {
+		c++
+	}
+	return c
+}
+
 // Verify performs address, misc, mx and smtp checks
-func (v *Verifier) Verify(email string) (*Result, error) {
+func (v *Verifier) Verify(ctx context.Context, email string) (*Result, error) {
+	email = trimLower(email)
 	ret := Result{
 		Email:     email,
 		Reachable: reachableUnknown,
@@ -81,35 +104,67 @@ func (v *Verifier) Verify(email string) (*Result, error) {
 		ret.Suggestion = v.SuggestDomain(syntax.Domain)
 	}
 
+	if !v.TopLevelDomainDisabled {
+		if domainIDNA := domainToASCII(syntax.Domain); !TopLevelDomainExists(domainIDNA) {
+			return nil, fmt.Errorf("TLD domain %q does not exist", domainIDNA)
+		}
+		ret.TLDExists = true
+	}
 	// If the domain name is disposable, mx and smtp are not checked.
 	if ret.Disposable {
 		return &ret, nil
 	}
 
-	mx, err := v.CheckMX(syntax.Domain)
-	if err != nil {
-		errStr := err.Error()
+	// only start goroutines when it is worth
+	var g errgrouper = new(noGroup)
+	if v.enabledOptions() > 1 {
+		g, ctx = errgroup.WithContext(ctx)
+	}
+
+	g.Go(func() error {
+		mx, err := v.CheckMX(ctx, syntax.Domain)
+		if err != nil {
+			errStr := err.Error()
 		if insContains(errStr, "no such host") {
 			ret.Reachable = reachableNo
 			return &ret, newLookupError(ErrNoSuchHost, errStr)
 		}
-		return &ret, err
-	}
-	ret.HasMxRecords = mx.HasMXRecord
+		return fmt.Errorf("CheckMX failed: %w", err)
+		}
+		ret.HasMxRecords = mx.HasMXRecord
+		return nil
+	})
 
-	smtp, err := v.CheckSMTP(syntax.Domain, syntax.Username)
-	if err != nil {
-		return &ret, err
-	}
-	ret.SMTP = smtp
-	ret.Reachable = v.calculateReachable(smtp)
-
-	if v.gravatarCheckEnabled {
-		gravatar, err := v.CheckGravatar(email)
+	g.Go(func() error {
+		smtp, err := v.CheckSMTP(ctx, syntax.Domain, syntax.Username)
 		if err != nil {
-			return &ret, err
+			return fmt.Errorf("CheckSMTP failed: %w", err)
+		}
+		ret.SMTP = smtp
+		ret.Reachable = v.calculateReachable(smtp)
+
+		return nil
+	})
+
+	g.Go(func() error {
+		gravatar, err := v.CheckGravatar(ctx, email)
+		if err != nil {
+			return fmt.Errorf("CheckGravatar failed: %w", err)
 		}
 		ret.Gravatar = gravatar
+
+		return nil
+	})
+
+	g.Go(func() error {
+		if v.domainSuggestEnabled {
+			ret.Suggestion = v.SuggestDomain(syntax.Domain)
+		}
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return &ret, err
 	}
 
 	return &ret, nil
@@ -274,4 +329,23 @@ func (v *Verifier) stopCurrentSchedule() {
 	if v.schedule != nil {
 		v.schedule.stop()
 	}
+}
+
+type errgrouper interface {
+	Go(f func() error)
+	Wait() error
+}
+
+type noGroup struct {
+	err error
+}
+
+func (ng *noGroup) Go(f func() error) {
+	if err := f(); err != nil {
+		ng.err = errors.Join(ng.err, err)
+	}
+}
+
+func (ng *noGroup) Wait() error {
+	return ng.err
 }

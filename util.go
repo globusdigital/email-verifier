@@ -27,7 +27,6 @@ func domainToASCII(domain string) string {
 		return domain
 	}
 	return asciiDomain
-
 }
 
 // callJobFuncWithParams convert jobFunc and prams to a specific function and call it
@@ -49,11 +48,15 @@ func callJobFuncWithParams(jobFunc interface{}, params []interface{}) []reflect.
 
 // getMD5Hash use md5 to encode string
 // #nosec
-func getMD5Hash(str string) (error, string) {
+func getMD5Hash(str string) (string, error) {
 	h := md5.New()
 	_, err := h.Write([]byte(str))
 	if err != nil {
-		return err, ""
+		return "", err
 	}
-	return nil, hex.EncodeToString(h.Sum(nil))
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func trimLower(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
 }

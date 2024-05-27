@@ -34,6 +34,7 @@ Use `Verify` method to verify an email address with different dimensions
 package main
 
 import (
+	"context"
 	"fmt"
 	
 	emailverifier "github.com/AfterShip/email-verifier"
@@ -47,7 +48,7 @@ var (
 func main() {
 	email := "example@exampledomain.org"
 
-	ret, err := verifier.Verify(email)
+	ret, err := verifier.Verify(context.Background(), email)
 	if err != nil {
 		fmt.Println("verify email address failed, error is: ", err)
 		return
@@ -94,7 +95,7 @@ func main() {
 
     domain := "domain.org"
     username := "username"
-    ret, err := verifier.CheckSMTP(domain, username)
+    ret, err := verifier.CheckSMTP(ctx, domain, username)
     if err != nil {
         fmt.Println("check smtp failed: ", err)
         return
@@ -135,7 +136,7 @@ func main() {
 
     domain := "domain.org"
     username := "username"
-    ret, err := verifier.CheckSMTP(domain, username)
+    ret, err := verifier.CheckSMTP(ctx, domain, username)
     if err != nil {
         fmt.Println("check smtp failed: ", err)
         return

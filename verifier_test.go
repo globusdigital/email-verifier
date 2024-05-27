@@ -1,13 +1,14 @@
 package emailverifier
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCheckEmailOK_SMTPHostNotExists(t *testing.T) {
-	var (
+	const (
 		// trueVal  = true
 		username = "email_username"
 		domain   = "domainnotexists.com"
@@ -15,7 +16,7 @@ func TestCheckEmailOK_SMTPHostNotExists(t *testing.T) {
 		email    = address
 	)
 
-	ret, err := verifier.Verify(email)
+	ret, err := verifier.Verify(context.Background(), email)
 	expected := Result{
 		Email: email,
 		Syntax: Syntax{
@@ -29,13 +30,14 @@ func TestCheckEmailOK_SMTPHostNotExists(t *testing.T) {
 		Reachable:    reachableNo,
 		Free:         false,
 		SMTP:         nil,
+		TLDExists:    true,
 	}
 	assert.ErrorContains(t, err, ErrNoSuchHost)
 	assert.Equal(t, &expected, ret)
 }
 
 func TestCheckEmailOK_SMTPHostExists_NotCatchAll(t *testing.T) {
-	var (
+	const (
 		// trueVal  = true
 		username = "email_username"
 		domain   = "github.com"
@@ -43,7 +45,7 @@ func TestCheckEmailOK_SMTPHostExists_NotCatchAll(t *testing.T) {
 		email    = address
 	)
 
-	ret, err := verifier.Verify(email)
+	ret, err := verifier.Verify(context.Background(), email)
 	expected := Result{
 		Email: email,
 		Syntax: Syntax{
@@ -56,6 +58,7 @@ func TestCheckEmailOK_SMTPHostExists_NotCatchAll(t *testing.T) {
 		Disposable:   false,
 		RoleAccount:  false,
 		Free:         false,
+		TLDExists:    true,
 		SMTP: &SMTP{
 			HostExists:  true,
 			FullInbox:   false,
@@ -69,7 +72,7 @@ func TestCheckEmailOK_SMTPHostExists_NotCatchAll(t *testing.T) {
 }
 
 func TestCheckEmailOK_SMTPHostExists_FreeDomain(t *testing.T) {
-	var (
+	const (
 		// trueVal  = true
 		username = "email_username"
 		domain   = "gmail.com"
@@ -77,7 +80,7 @@ func TestCheckEmailOK_SMTPHostExists_FreeDomain(t *testing.T) {
 		email    = address
 	)
 
-	ret, err := verifier.Verify(email)
+	ret, err := verifier.Verify(context.Background(), email)
 	expected := Result{
 		Email: email,
 		Syntax: Syntax{
@@ -97,13 +100,14 @@ func TestCheckEmailOK_SMTPHostExists_FreeDomain(t *testing.T) {
 			Deliverable: false,
 			Disabled:    false,
 		},
+		TLDExists: true,
 	}
 	assert.Nil(t, err)
 	assert.Equal(t, &expected, ret)
 }
 
 func TestCheckEmail_ErrorSyntax(t *testing.T) {
-	var (
+	const (
 		// trueVal  = true
 		username = ""
 		domain   = "yahoo.com"
@@ -111,7 +115,7 @@ func TestCheckEmail_ErrorSyntax(t *testing.T) {
 		email    = address
 	)
 
-	ret, err := verifier.Verify(email)
+	ret, err := verifier.Verify(context.Background(), email)
 	expected := Result{
 		Email: email,
 		Syntax: Syntax{
@@ -125,13 +129,14 @@ func TestCheckEmail_ErrorSyntax(t *testing.T) {
 		RoleAccount:  false,
 		Free:         false,
 		SMTP:         nil,
+		TLDExists:    false,
 	}
 	assert.Nil(t, err)
 	assert.Equal(t, &expected, ret)
 }
 
 func TestCheckEmail_Disposable(t *testing.T) {
-	var (
+	const (
 		// trueVal  = true
 		username = "exampleuser"
 		domain   = "zzjbfwqi.shop"
@@ -139,7 +144,7 @@ func TestCheckEmail_Disposable(t *testing.T) {
 		email    = address
 	)
 
-	ret, err := verifier.Verify(email)
+	ret, err := verifier.Verify(context.Background(), email)
 	expected := Result{
 		Email: email,
 		Syntax: Syntax{
@@ -153,21 +158,22 @@ func TestCheckEmail_Disposable(t *testing.T) {
 		RoleAccount:  false,
 		Free:         false,
 		SMTP:         nil,
+		TLDExists:    true,
 	}
 	assert.Nil(t, err)
 	assert.Equal(t, &expected, ret)
 }
 
 func TestCheckEmail_Disposable_override(t *testing.T) {
-	var (
+	const (
 		username = "exampleuser"
-		domain   = "iamdisposableemail.test"
+		domain   = "iamdisposableemail.de"
 		address  = username + "@" + domain
 		email    = address
 	)
 
-	verifier := NewVerifier().EnableSMTPCheck().AddDisposableDomains([]string{"iamdisposableemail.test"})
-	ret, err := verifier.Verify(email)
+	verifier := NewVerifier().EnableSMTPCheck().AddDisposableDomains([]string{"iamdisposableemail.de"})
+	ret, err := verifier.Verify(context.Background(), email)
 	expected := Result{
 		Email: email,
 		Syntax: Syntax{
@@ -181,13 +187,43 @@ func TestCheckEmail_Disposable_override(t *testing.T) {
 		RoleAccount:  false,
 		Free:         false,
 		SMTP:         nil,
+		TLDExists:    true,
 	}
 	assert.Nil(t, err)
 	assert.Equal(t, &expected, ret)
 }
 
+func TestCheckEmail_TLD_NotExists(t *testing.T) {
+	const (
+		username = "exampleuser"
+		domain   = "iamdisposableemail.testing"
+		address  = username + "@" + domain
+		email    = address
+	)
+
+	verifier := NewVerifier().DisableMXCheck().DisableSMTPCheck()
+	ret, err := verifier.Verify(context.Background(), email)
+	assert.Nil(t, ret)
+	assert.EqualError(t, err, "TLD domain \"iamdisposableemail.testing\" does not exist")
+}
+
+func TestCheckEmail_Concurrency(t *testing.T) {
+	const (
+		username = "exampleuser"
+		domain   = "microsoft.com"
+		address  = username + "@" + domain
+		email    = address
+	)
+
+	verifier := NewVerifier().EnableGravatarCheck().EnableMXCheck().EnableSMTPCheck()
+
+	ret, err := verifier.Verify(context.Background(), email)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, ret)
+}
+
 func TestCheckEmail_RoleAccount(t *testing.T) {
-	var (
+	const (
 		// trueVal  = true
 		username = "admin"
 		domain   = "github.com"
@@ -195,7 +231,7 @@ func TestCheckEmail_RoleAccount(t *testing.T) {
 		email    = address
 	)
 
-	ret, err := verifier.Verify(email)
+	ret, err := verifier.Verify(context.Background(), email)
 	expected := Result{
 		Email: email,
 		Syntax: Syntax{
@@ -215,6 +251,7 @@ func TestCheckEmail_RoleAccount(t *testing.T) {
 			Deliverable: false,
 			Disabled:    false,
 		},
+		TLDExists: true,
 	}
 	assert.Nil(t, err)
 	assert.Equal(t, &expected, ret)
@@ -230,7 +267,7 @@ func TestCheckEmail_DisabledSMTPCheck(t *testing.T) {
 	)
 
 	verifier.DisableSMTPCheck()
-	ret, err := verifier.Verify(email)
+	ret, err := verifier.Verify(context.Background(), email)
 	expected := Result{
 		Email: email,
 		Syntax: Syntax{
@@ -244,6 +281,7 @@ func TestCheckEmail_DisabledSMTPCheck(t *testing.T) {
 		Reachable:    reachableUnknown,
 		Free:         false,
 		SMTP:         nil,
+		TLDExists:    true,
 	}
 	verifier.EnableSMTPCheck()
 	assert.NoError(t, err)
@@ -280,7 +318,7 @@ func TestStopCurrentScheduleOK(t *testing.T) {
 }
 
 func TestCheckEmail_EnableDomainSuggest(t *testing.T) {
-	var (
+	const (
 		// trueVal  = true
 		username = "email_username"
 		domain   = "hotmail.com"
@@ -288,7 +326,7 @@ func TestCheckEmail_EnableDomainSuggest(t *testing.T) {
 		email    = address
 	)
 
-	ret, _ := verifier.Verify(email)
+	ret, _ := verifier.Verify(context.Background(), email)
 
 	assert.Empty(t, ret.Suggestion)
 }

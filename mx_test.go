@@ -2,6 +2,7 @@ package emailverifier
 
 import (
 	"context"
+	"context"
 	"errors"
 	"net"
 	"testing"
@@ -13,7 +14,7 @@ import (
 func TestCheckMxOK(t *testing.T) {
 	domain := "github.com"
 
-	mx, err := verifier.CheckMX(domain)
+	mx, err := verifier.CheckMX(context.Background(), domain)
 	require.NoError(t, err)
 	assert.True(t, mx.HasMXRecord)
 }
@@ -21,7 +22,7 @@ func TestCheckMxOK(t *testing.T) {
 func TestCheckNoMxOK(t *testing.T) {
 	domain := "githubexists.com"
 
-	mx, err := verifier.CheckMX(domain)
+	mx, err := verifier.CheckMX(context.Background(), domain)
 	assert.Nil(t, mx)
 
 	// CheckMX surfaces the resolver error as-is; it is Verify that maps it to

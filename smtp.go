@@ -60,7 +60,7 @@ func catchAllFromResult(s *SMTP) catchAllOutcome {
 //   - username is used to check the deliverability of specific email address,
 //
 // if server is catch-all server, username will not be checked
-func (v *Verifier) CheckSMTP(domain, username string) (*SMTP, error) {
+func (v *Verifier) CheckSMTP(ctx context.Context, domain, username string) (*SMTP, error) {
 	res, _, err := v.checkSMTP(domain, username)
 	return res, err
 }
@@ -78,7 +78,7 @@ func (v *Verifier) checkSMTP(domain, username string) (*SMTP, catchAllOutcome, e
 	email := fmt.Sprintf("%s@%s", username, domain)
 
 	// Dial any SMTP server that will accept a connection
-	client, mx, err := newSMTPClient(domain, v.proxyURI, v.dnsResolver(), v.connectTimeout, v.operationTimeout)
+	client, mx, err := newSMTPClient(ctx, domain, v.proxyURI, v.dnsResolver(), v.connectTimeout, v.operationTimeout)
 	if err != nil {
 		return &ret, catchAll, ParseSMTPError(err)
 	}
@@ -161,7 +161,7 @@ func (v *Verifier) checkSMTP(domain, username string) (*SMTP, catchAllOutcome, e
 }
 
 // newSMTPClient generates a new available SMTP client
-func newSMTPClient(domain, proxyURI string, resolver *net.Resolver, connectTimeout, operationTimeout time.Duration) (*smtp.Client, *net.MX, error) {
+func newSMTPClient(ctx context.Context, domain, proxyURI string, resolver *net.Resolver, connectTimeout, operationTimeout time.Duration) (*smtp.Client, *net.MX, error) {
 	domain = domainToASCII(domain)
 	mxRecords, err := resolver.LookupMX(context.Background(), domain)
 	if err != nil {

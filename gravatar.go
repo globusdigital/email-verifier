@@ -4,23 +4,27 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 )
 
 // Gravatar is detail about the Gravatar
 type Gravatar struct {
-	HasGravatar bool `json:"has_gravatar"` // whether has gravatar
+	HasGravatar bool `json:"has_gravatar"` // whether it has gravatar
 	// GravatarUrl keeps its non-idiomatic spelling because it is an exported
 	// field: renaming it to GravatarURL would break every caller.
 	GravatarUrl string `json:"gravatar_url"` //nolint:staticcheck // ST1003
 }
 
 // CheckGravatar will return the Gravatar records for the given email.
-func (v *Verifier) CheckGravatar(email string) (*Gravatar, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+// Might return nil,nil on success when gravatar is disabled.
+func (v *Verifier) CheckGravatar(ctx context.Context, email string) (*Gravatar, error) {
+	if !v.gravatarCheckEnabled {
+		return nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	emailMd5, err := getMD5Hash(strings.ToLower(strings.TrimSpace(email)))
+	emailMd5, err := getMD5Hash(trimLower(email))
 	if err != nil {
 		return nil, err
 	}
@@ -48,10 +52,7 @@ func (v *Verifier) CheckGravatar(email string) (*Gravatar, error) {
 		return nil, err
 	}
 	if md5Body == gravatarDefaultMd5 || resp.StatusCode != http.StatusOK {
-		return &Gravatar{
-			HasGravatar: false,
-			GravatarUrl: "",
-		}, nil
+		return &Gravatar{}, nil
 	}
 	return &Gravatar{
 		HasGravatar: true,

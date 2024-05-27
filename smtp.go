@@ -135,7 +135,6 @@ func (v *Verifier) checkSMTP(domain, username string) (*SMTP, catchAllOutcome, e
 				default:
 
 				}
-
 			}
 		} else {
 			catchAll = catchAllAccepted
@@ -229,7 +228,6 @@ func newSMTPClient(domain, proxyURI string, resolver *net.Resolver, connectTimeo
 			return nil, nil, errors.New("Unexpected response dialing SMTP server") //nolint:staticcheck // ST1005
 		}
 	}
-
 }
 
 // preferredDialError picks the most useful of the errors gathered while racing
@@ -301,7 +299,6 @@ func GenerateRandomEmail(domain string) string {
 		r[i] = alphanumeric[rand.Intn(len(alphanumeric))] //nolint:gosec
 	}
 	return fmt.Sprintf("%s@%s", string(r), domain)
-
 }
 
 // establishConnection connects to the address on the named network address.

@@ -1,6 +1,7 @@
 package emailverifier
 
 import (
+	"context"
 	"strings"
 	"syscall"
 	"testing"
@@ -82,9 +83,9 @@ func TestCheckSMTPOK_ByApi(t *testing.T) {
 	for _, c := range cases {
 		test := c
 		t.Run(test.name, func(tt *testing.T) {
-			smtp, err := verifier.CheckSMTP(test.domain, test.username)
+			smtp, err := verifier.CheckSMTP(context.Background(), test.domain, test.username)
 			assert.NoError(t, err)
-			assert.Equal(t, test.expected, smtp)
+			assert.Equal(t, test.expected, smtp, test.name+" failed")
 		})
 	}
 }
@@ -92,7 +93,7 @@ func TestCheckSMTPOK_ByApi(t *testing.T) {
 func TestCheckSMTPOK_HostExists(t *testing.T) {
 	domain := "github.com"
 
-	smtp, err := verifier.CheckSMTP(domain, "")
+	smtp, err := verifier.CheckSMTP(context.Background(), domain, "")
 	expected := SMTP{
 		HostExists: true,
 		FullInbox:  false,
@@ -106,7 +107,7 @@ func TestCheckSMTPOK_HostExists(t *testing.T) {
 func TestCheckSMTPOK_CatchAllHost(t *testing.T) {
 	domain := "gmail.com"
 
-	smtp, err := verifier.CheckSMTP(domain, "")
+	smtp, err := verifier.CheckSMTP(context.Background(), domain, "")
 	expected := SMTP{
 		HostExists: true,
 		FullInbox:  false,
@@ -120,7 +121,7 @@ func TestCheckSMTPOK_CatchAllHost(t *testing.T) {
 func TestCheckSMTPOK_NoCatchAllHost(t *testing.T) {
 	domain := "gmail.com"
 
-	smtp, err := verifier.CheckSMTP(domain, "")
+	smtp, err := verifier.CheckSMTP(context.Background(), domain, "")
 	expected := SMTP{
 		HostExists: true,
 		FullInbox:  false,
@@ -134,8 +135,8 @@ func TestCheckSMTPOK_NoCatchAllHost(t *testing.T) {
 func TestCheckSMTPOK_NoCatchAllHostCatchAllCheckDisabled(t *testing.T) {
 	domain := "gmail.com"
 
-	var verifier = NewVerifier().EnableSMTPCheck().DisableCatchAllCheck()
-	smtp, err := verifier.CheckSMTP(domain, "")
+	verifier := NewVerifier().EnableSMTPCheck().DisableCatchAllCheck()
+	smtp, err := verifier.CheckSMTP(context.Background(), domain, "")
 	expected := SMTP{
 		HostExists: true,
 		FullInbox:  false,
@@ -150,7 +151,7 @@ func TestCheckSMTPOK_UpdateFromEmail(t *testing.T) {
 	domain := "github.com"
 	verifier.FromEmail("from@email.top")
 
-	smtp, err := verifier.CheckSMTP(domain, "")
+	smtp, err := verifier.CheckSMTP(context.Background(), domain, "")
 	expected := SMTP{
 		HostExists:  true,
 		FullInbox:   false,
@@ -166,7 +167,7 @@ func TestCheckSMTPOK_UpdateHelloName(t *testing.T) {
 	domain := "github.com"
 	verifier.HelloName("email.top")
 
-	smtp, err := verifier.CheckSMTP(domain, "")
+	smtp, err := verifier.CheckSMTP(context.Background(), domain, "")
 	expected := SMTP{
 		HostExists:  true,
 		FullInbox:   false,
@@ -182,7 +183,7 @@ func TestCheckSMTPOK_WithNoExistUsername(t *testing.T) {
 	domain := "github.com"
 	username := "testing"
 
-	smtp, err := verifier.CheckSMTP(domain, username)
+	smtp, err := verifier.CheckSMTP(context.Background(), domain, username)
 	expected := SMTP{
 		HostExists: true,
 		FullInbox:  false,
@@ -197,7 +198,7 @@ func TestCheckSMTP_DisabledSMTPCheck(t *testing.T) {
 	domain := "github.com"
 
 	verifier.DisableSMTPCheck()
-	smtp, err := verifier.CheckSMTP(domain, "username")
+	smtp, err := verifier.CheckSMTP(context.Background(), domain, "username")
 	verifier.EnableSMTPCheck()
 
 	assert.NoError(t, err)
@@ -207,14 +208,14 @@ func TestCheckSMTP_DisabledSMTPCheck(t *testing.T) {
 func TestCheckSMTPOK_HostNotExists(t *testing.T) {
 	domain := "notExistHost.com"
 
-	smtp, err := verifier.CheckSMTP(domain, "")
+	smtp, err := verifier.CheckSMTP(context.Background(), domain, "")
 	assert.Error(t, err, ErrNoSuchHost)
 	assert.Equal(t, &SMTP{}, smtp)
 }
 
 func TestNewSMTPClientOK(t *testing.T) {
 	domain := "gmail.com"
-	ret, _, err := newSMTPClient(domain, "")
+	ret, _, err := newSMTPClient(context.Background(), domain, "")
 	assert.NotNil(t, ret)
 	assert.Nil(t, err)
 }
@@ -222,14 +223,14 @@ func TestNewSMTPClientOK(t *testing.T) {
 func TestNewSMTPClientFailed_WithInvalidProxy(t *testing.T) {
 	domain := "gmail.com"
 	proxyURI := "socks5://user:password@127.0.0.1:1080?timeout=5s"
-	ret, _, err := newSMTPClient(domain, proxyURI)
+	ret, _, err := newSMTPClient(context.Background(), domain, proxyURI)
 	assert.Nil(t, ret)
 	assert.Error(t, err, syscall.ECONNREFUSED)
 }
 
 func TestNewSMTPClientFailed(t *testing.T) {
 	domain := "zzzz171777.com"
-	ret, _, err := newSMTPClient(domain, "")
+	ret, _, err := newSMTPClient(context.Background(), domain, "")
 	assert.Nil(t, ret)
 	assert.Error(t, err)
 }

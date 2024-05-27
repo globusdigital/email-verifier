@@ -1,6 +1,7 @@
 package emailverifier
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -28,7 +29,7 @@ type SMTP struct {
 //   - username is used to check the deliverability of specific email address,
 //
 // if server is catch-all server, username will not be checked
-func (v *Verifier) CheckSMTP(domain, username string) (*SMTP, error) {
+func (v *Verifier) CheckSMTP(ctx context.Context, domain, username string) (*SMTP, error) {
 	if !v.smtpCheckEnabled {
 		return nil, nil
 	}
@@ -38,7 +39,7 @@ func (v *Verifier) CheckSMTP(domain, username string) (*SMTP, error) {
 	email := fmt.Sprintf("%s@%s", username, domain)
 
 	// Dial any SMTP server that will accept a connection
-	client, mx, err := newSMTPClient(domain, v.proxyURI)
+	client, mx, err := newSMTPClient(ctx, domain, v.proxyURI)
 	if err != nil {
 		return &ret, ParseSMTPError(err)
 	}
@@ -111,9 +112,9 @@ func (v *Verifier) CheckSMTP(domain, username string) (*SMTP, error) {
 }
 
 // newSMTPClient generates a new available SMTP client
-func newSMTPClient(domain, proxyURI string) (*smtp.Client, *net.MX, error) {
+func newSMTPClient(ctx context.Context, domain, proxyURI string) (*smtp.Client, *net.MX, error) {
 	domain = domainToASCII(domain)
-	mxRecords, err := net.LookupMX(domain)
+	mxRecords, err := net.DefaultResolver.LookupMX(ctx, domain)
 	if err != nil {
 		return nil, nil, err
 	}

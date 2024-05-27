@@ -88,7 +88,6 @@ func (v *Verifier) CheckSMTP(domain, username string) (*SMTP, error) {
 				default:
 
 				}
-
 			}
 		}
 
@@ -176,7 +175,6 @@ func newSMTPClient(domain, proxyURI string, connectTimeout, operationTimeout tim
 			return nil, nil, errors.New("Unexpected response dialing SMTP server")
 		}
 	}
-
 }
 
 // dialSMTP is a timeout wrapper for smtp.Dial. It attempts to dial an
@@ -214,7 +212,6 @@ func GenerateRandomEmail(domain string) string {
 		r[i] = alphanumeric[rand.Intn(len(alphanumeric))] //nolint:gosec
 	}
 	return fmt.Sprintf("%s@%s", string(r), domain)
-
 }
 
 // establishConnection connects to the address on the named network address.

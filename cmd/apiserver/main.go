@@ -7,14 +7,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/julienschmidt/httprouter"
-
 	emailVerifier "github.com/AfterShip/email-verifier"
+	"github.com/julienschmidt/httprouter"
 )
 
 func GetEmailVerification(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	verifier := emailVerifier.NewVerifier()
-	ret, err := verifier.Verify(ps.ByName("email"))
+	ret, err := verifier.Verify(r.Context(), ps.ByName("email"))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -31,7 +30,6 @@ func GetEmailVerification(w http.ResponseWriter, r *http.Request, ps httprouter.
 	}
 
 	_, _ = fmt.Fprint(w, string(bytes))
-
 }
 
 func main() {

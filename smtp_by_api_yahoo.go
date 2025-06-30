@@ -148,7 +148,13 @@ func (y yahoo) sendValidateRequest(req yahooValidateReq) (yahooErrorResp, error)
 	if err != nil {
 		return res, err
 	}
-	return res, json.Unmarshal(respBytes, &res)
+
+	if !json.Valid(respBytes) {
+		return res, errors.New("yahoo response is not valid JSON")
+	}
+
+	err = json.Unmarshal(respBytes, &res)
+	return res, err
 }
 
 func (y yahoo) toSignUpPage() ([]*http.Cookie, []byte, error) {

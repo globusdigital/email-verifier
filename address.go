@@ -16,7 +16,6 @@ type Syntax struct {
 
 // ParseAddress attempts to parse an email address and return it in the form of an Syntax
 func (v *Verifier) ParseAddress(email string) Syntax {
-
 	isAddressValid := IsAddressValid(email)
 	if !isAddressValid {
 		return Syntax{Valid: false}

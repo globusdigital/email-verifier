@@ -339,8 +339,9 @@ func TestCheckEmail_EnableDomainSuggest_Gmail(t *testing.T) {
 		address  = username + "@" + domain
 		email    = address
 	)
+	ctx := context.Background()
 
-	ret, _ := verifier.EnableDomainSuggest().Verify(email)
+	ret, _ := verifier.EnableDomainSuggest().Verify(ctx, email)
 
 	assert.Equal(t, "gmail.com", ret.Suggestion)
 }

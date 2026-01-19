@@ -125,11 +125,11 @@ func (v *Verifier) Verify(ctx context.Context, email string) (*Result, error) {
 		mx, err := v.CheckMX(ctx, syntax.Domain)
 		if err != nil {
 			errStr := err.Error()
-		if insContains(errStr, "no such host") {
-			ret.Reachable = reachableNo
-			return &ret, newLookupError(ErrNoSuchHost, errStr)
-		}
-		return fmt.Errorf("CheckMX failed: %w", err)
+			if insContains(errStr, "no such host") {
+				ret.Reachable = reachableNo
+				return newLookupError(ErrNoSuchHost, errStr)
+			}
+			return fmt.Errorf("CheckMX failed: %w", err)
 		}
 		ret.HasMxRecords = mx.HasMXRecord
 		return nil

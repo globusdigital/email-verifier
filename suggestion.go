@@ -20,7 +20,6 @@ func (v *Verifier) SuggestDomain(domain string) string {
 		if suggestionSecondLevelDomains[sld] && suggestionTopLevelDomains[tld] {
 			return ""
 		}
-
 	}
 
 	closestDomain := findClosestDomain(domain, freeDomains, domainThreshold)
@@ -58,7 +57,7 @@ func (v *Verifier) SuggestDomain(domain string) string {
 
 // findClosestDomain finds the string most similar to the domain via Levenshtein algorithms.
 func findClosestDomain(domain string, domains map[string]bool, threshold float32) string {
-	var maxDist = float32(-1)
+	maxDist := float32(-1)
 	var closestDomain string
 
 	if domain == "" || len(domains) == 0 {

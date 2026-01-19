@@ -30,7 +30,6 @@ func TestUpdateDisposableDomainsOK(t *testing.T) {
 }
 
 func TestUpdateDisposableDomainsFailed_NoSuchHost(t *testing.T) {
-
 	err := updateDisposableDomains("http://abcmockxyz.aaa")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no such host")
@@ -57,7 +56,6 @@ func TestUpdateDisposableDomainsFailed_StatusInternalError(t *testing.T) {
 }
 
 func TestUpdateDisposableDomains_NoResponse(t *testing.T) {
-
 	defer gock.Off()
 	gock.New("https://raw.githubusercontent.com").
 		Get("/disposable/disposable-email-domains/master/domains.json").
@@ -68,7 +66,6 @@ func TestUpdateDisposableDomains_NoResponse(t *testing.T) {
 }
 
 func TestUpdateDisposableDomains_WrongResponse(t *testing.T) {
-
 	defer gock.Off()
 	gock.New("https://raw.githubusercontent.com").
 		Get("/disposable/disposable-email-domains/master/domains.json").

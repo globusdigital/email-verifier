@@ -18,7 +18,7 @@ func writeFile(filePath string, data []byte) {
 	}
 
 	fmt.Printf("Writing new %s\n", filePath)
-	err := os.WriteFile(filePath, data, os.FileMode(0664))
+	err := os.WriteFile(filePath, data, os.FileMode(0o664))
 	if err != nil {
 		log.Fatalf("Error writing '%s': %s", filePath, err)
 	}
@@ -94,7 +94,6 @@ func buildMetaDataFile() {
 		writeFile(f.srcPath, output.Bytes())
 
 	}
-
 }
 
 func updateMetaData() {

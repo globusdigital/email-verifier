@@ -5,9 +5,7 @@ import (
 	"sync"
 )
 
-var (
-	disposableSyncDomains sync.Map // concurrent safe map to store disposable domains data
-)
+var disposableSyncDomains sync.Map // concurrent safe map to store disposable domains data
 
 // IsRoleAccount checks if username is a role-based account
 func (v *Verifier) IsRoleAccount(username string) bool {

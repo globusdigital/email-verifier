@@ -22,8 +22,8 @@ type Verifier struct {
 	helloName              string                     // email to use in the `MAIL FROM:` SMTP command. defaults to `localhost`
 	schedule               *schedule                  // schedule represents a job schedule
 	proxyURI               string                     // use a SOCKS5 proxy to verify the email,
-	apiVerifiers         map[string]smtpAPIVerifier // per-vendor API verifiers; no built-in vendors currently, contributions are welcomed.
-	resolver             *net.Resolver              // resolver used to perform MX and SMTP DNS lookups; nil means net.DefaultResolver, read at call time
+	apiVerifiers           map[string]smtpAPIVerifier // per-vendor API verifiers; no built-in vendors currently, contributions are welcomed.
+	resolver               *net.Resolver              // resolver used to perform MX and SMTP DNS lookups; nil means net.DefaultResolver, read at call time
 
 	// Timeouts
 	connectTimeout   time.Duration // Timeout for establishing connections
@@ -136,14 +136,14 @@ func (v *Verifier) Verify(ctx context.Context, email string) (*Result, error) {
 	g.Go(func() error {
 		smtp, catchAll, err := v.checkSMTP(ctx, syntax.Domain, syntax.Username)
 
-	// Kept whether or not the check succeeded. A failed exchange still says how
-	// far it got, which is the difference between a host that never answered and
-	// one that answered and refused our sender.
-	ret.SMTP = smtp
+		// Kept whether or not the check succeeded. A failed exchange still says how
+		// far it got, which is the difference between a host that never answered and
+		// one that answered and refused our sender.
+		ret.SMTP = smtp
 		if err != nil {
 			return fmt.Errorf("CheckSMTP failed: %w", err)
 		}
-	ret.Reachable = v.calculateReachable(smtp, catchAll)
+		ret.Reachable = v.calculateReachable(smtp, catchAll)
 
 		return nil
 	})

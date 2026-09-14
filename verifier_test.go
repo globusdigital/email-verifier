@@ -19,20 +19,17 @@ func TestCheckEmailOK_SMTPHostNotExists(t *testing.T) {
 	)
 
 	ret, err := verifier.Verify(context.Background(), email)
+
 	expected := Result{
-		Email: email,
+		Email:     "email_username@domainnotexists.com",
+		Reachable: "no",
 		Syntax: Syntax{
-			Username: username,
-			Domain:   domain,
+			Username: "email_username",
+			Domain:   "domainnotexists.com",
 			Valid:    true,
 		},
-		HasMxRecords: false,
-		Disposable:   false,
-		RoleAccount:  false,
-		Reachable:    reachableNo,
-		Free:         false,
-		SMTP:         nil,
-		TLDExists:    true,
+		SMTP:      &SMTP{},
+		TLDExists: true,
 	}
 	require.ErrorContains(t, err, ErrNoSuchHost)
 	assert.Equal(t, &expected, ret)

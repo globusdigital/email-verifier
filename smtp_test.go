@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"strings"
 	"sync/atomic"
-	"context"
-	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -22,62 +20,6 @@ import (
 func TestCheckSMTPUnSupportedVendor(t *testing.T) {
 	err := verifier.EnableAPIVerifier("unsupported_vendor")
 	assert.Error(t, err)
-}
-
-func TestCheckSMTPOK_ByApi(t *testing.T) {
-	cases := []struct {
-		name     string
-		domain   string
-		username string
-		expected *SMTP
-	}{
-		{
-			name:     "yahoo exists",
-			domain:   "yahoo.com",
-			username: "someone",
-			expected: &SMTP{
-				HostExists:  true,
-				Deliverable: true,
-			},
-		},
-		{
-			name:     "myyahoo exists",
-			domain:   "myyahoo.com",
-			username: "someone",
-			expected: &SMTP{
-				HostExists:  true,
-				Deliverable: true,
-			},
-		},
-		{
-			name:     "yahoo no exists",
-			domain:   "yahoo.com",
-			username: "123",
-			expected: &SMTP{
-				HostExists:  true,
-				Deliverable: false,
-			},
-		},
-		{
-			name:     "myyahoo no exists",
-			domain:   "myyahoo.com",
-			username: "123",
-			expected: &SMTP{
-				HostExists:  true,
-				Deliverable: false,
-			},
-		},
-	}
-	_ = verifier.EnableAPIVerifier(YAHOO)
-	defer verifier.DisableAPIVerifier(YAHOO)
-	for _, c := range cases {
-		test := c
-		t.Run(test.name, func(tt *testing.T) {
-			smtp, err := verifier.CheckSMTP(context.Background(), test.domain, test.username)
-			assert.NoError(t, err)
-			assert.Equal(t, test.expected, smtp, test.name+" failed")
-		})
-	}
 }
 
 func TestCheckSMTPOK_HostExists(t *testing.T) {
@@ -231,7 +173,7 @@ func TestNewSMTPClientFailed(t *testing.T) {
 func TestDialSMTPFailed_NoPortIsConfigured(t *testing.T) {
 	disposableDomain := "zzzz1717.com"
 	timeout := 5 * time.Second
-	ret, err := dialSMTP(disposableDomain, "", net.DefaultResolver, timeout, timeout)
+	ret, err := dialSMTP(context.Background(), disposableDomain, "", net.DefaultResolver, timeout, timeout)
 	assert.Nil(t, ret)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing port")
@@ -240,7 +182,7 @@ func TestDialSMTPFailed_NoPortIsConfigured(t *testing.T) {
 func TestDialSMTPFailed_NoSuchHost(t *testing.T) {
 	disposableDomain := "zzzzyyyyaaa123.com:25"
 	timeout := 5 * time.Second
-	ret, err := dialSMTP(disposableDomain, "", net.DefaultResolver, timeout, timeout)
+	ret, err := dialSMTP(context.Background(), disposableDomain, "", net.DefaultResolver, timeout, timeout)
 	assert.Nil(t, ret)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no such host")
@@ -260,7 +202,7 @@ func TestDialSMTP_WithCustomResolver(t *testing.T) {
 		},
 	}
 
-	ret, err := dialSMTP(domain, "", customResolver, timeout, timeout)
+	ret, err := dialSMTP(context.Background(), domain, "", customResolver, timeout, timeout)
 	assert.Nil(t, ret)
 	assert.True(t, called.Load())
 	require.ErrorContains(t, err, wantErr.Error())
@@ -286,7 +228,7 @@ func TestDialSMTP_ProxyBypassesCustomResolver(t *testing.T) {
 		},
 	}
 
-	ret, err := dialSMTP(domain, proxyURI, customResolver, timeout, timeout)
+	ret, err := dialSMTP(context.Background(), domain, proxyURI, customResolver, timeout, timeout)
 	assert.Nil(t, ret)
 	require.Error(t, err)
 	assert.False(t, called.Load())

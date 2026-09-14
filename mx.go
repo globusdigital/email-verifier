@@ -5,10 +5,6 @@ import (
 	"fmt"
 	"net"
 )
-import (
-	"context"
-	"net"
-)
 
 // Mx is detail about the Mx host
 type Mx struct {
@@ -28,7 +24,7 @@ func (v *Verifier) CheckMX(ctx context.Context, domain string) (*Mx, error) {
 		return &Mx{}, nil
 	}
 
-	mx, err := v.dnsResolver().LookupMX(context.Background(), domain)
+	mx, err := v.dnsResolver().LookupMX(ctx, domain)
 	if err != nil && len(mx) == 0 {
 		return nil, err
 	}

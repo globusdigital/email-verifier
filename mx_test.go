@@ -2,7 +2,6 @@ package emailverifier
 
 import (
 	"context"
-	"context"
 	"errors"
 	"net"
 	"testing"
@@ -45,7 +44,7 @@ func TestCheckMx_WithCustomResolver(t *testing.T) {
 	}
 
 	v := NewVerifier().Resolver(customResolver)
-	mx, err := v.CheckMX(domain)
+	mx, err := v.CheckMX(context.Background(), domain)
 	assert.Nil(t, mx)
 	assert.ErrorContains(t, err, wantErr.Error())
 }

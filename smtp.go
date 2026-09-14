@@ -61,13 +61,13 @@ func catchAllFromResult(s *SMTP) catchAllOutcome {
 //
 // if server is catch-all server, username will not be checked
 func (v *Verifier) CheckSMTP(ctx context.Context, domain, username string) (*SMTP, error) {
-	res, _, err := v.checkSMTP(domain, username)
+	res, _, err := v.checkSMTP(ctx, domain, username)
 	return res, err
 }
 
 // checkSMTP is CheckSMTP plus what the catch-all probe concluded. Verify needs
 // that to tell a domain which accepts every address from one we could not ask.
-func (v *Verifier) checkSMTP(domain, username string) (*SMTP, catchAllOutcome, error) {
+func (v *Verifier) checkSMTP(ctx context.Context, domain, username string) (*SMTP, catchAllOutcome, error) {
 	if !v.smtpCheckEnabled {
 		return nil, catchAllNotRun, nil
 	}
@@ -163,7 +163,7 @@ func (v *Verifier) checkSMTP(domain, username string) (*SMTP, catchAllOutcome, e
 // newSMTPClient generates a new available SMTP client
 func newSMTPClient(ctx context.Context, domain, proxyURI string, resolver *net.Resolver, connectTimeout, operationTimeout time.Duration) (*smtp.Client, *net.MX, error) {
 	domain = domainToASCII(domain)
-	mxRecords, err := resolver.LookupMX(context.Background(), domain)
+	mxRecords, err := resolver.LookupMX(ctx, domain)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -189,7 +189,7 @@ func newSMTPClient(ctx context.Context, domain, proxyURI string, resolver *net.R
 		addr := r.Host + smtpPort
 		index := i
 		go func() {
-			c, err := dialSMTP(addr, proxyURI, resolver, connectTimeout, operationTimeout)
+			c, err := dialSMTP(ctx, addr, proxyURI, resolver, connectTimeout, operationTimeout)
 			if err != nil {
 				if !done {
 					ch <- err
@@ -267,13 +267,13 @@ func hasSMTPReply(err error) bool {
 // dialSMTP is a timeout wrapper for smtp.Dial. It attempts to dial an
 // SMTP server (socks5 proxy supported) and fails with a timeout if timeout is reached while
 // attempting to establish a new connection
-func dialSMTP(addr, proxyURI string, resolver *net.Resolver, connectTimeout, operationTimeout time.Duration) (*smtp.Client, error) {
+func dialSMTP(ctx context.Context, addr, proxyURI string, resolver *net.Resolver, connectTimeout, operationTimeout time.Duration) (*smtp.Client, error) {
 	// Dial the new smtp connection
 	var conn net.Conn
 	var err error
 
 	if proxyURI != "" {
-		conn, err = establishProxyConnection(addr, proxyURI, connectTimeout)
+		conn, err = establishProxyConnection(ctx, addr, proxyURI, connectTimeout)
 	} else {
 		conn, err = establishConnection(addr, resolver, connectTimeout)
 	}
@@ -309,7 +309,7 @@ func establishConnection(addr string, resolver *net.Resolver, timeout time.Durat
 
 // establishProxyConnection connects to the address on the named network address
 // via proxy protocol
-func establishProxyConnection(addr, proxyURI string, timeout time.Duration) (net.Conn, error) {
+func establishProxyConnection(ctx context.Context, addr, proxyURI string, timeout time.Duration) (net.Conn, error) {
 	u, err := url.Parse(proxyURI)
 	if err != nil {
 		return nil, err
@@ -320,7 +320,7 @@ func establishProxyConnection(addr, proxyURI string, timeout time.Duration) (net
 	}
 
 	// https://github.com/golang/go/issues/37549#issuecomment-1178745487
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	if contextDialer, ok := dialer.(proxy.ContextDialer); ok {

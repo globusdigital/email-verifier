@@ -14,10 +14,10 @@ import (
 // an unbuffered channel and the goroutine receives only while parked in its
 // select, never mid job, so nothing can fire after it returns.
 func TestStartScheduleOK(t *testing.T) {
-	var ops int32
+	var ops atomic.Int32
 	fired := make(chan struct{}, 16)
 	s := newSchedule(10*time.Millisecond, func() {
-		atomic.AddInt32(&ops, 1)
+		ops.Add(1)
 		select {
 		case fired <- struct{}{}:
 		default:
@@ -29,14 +29,14 @@ func TestStartScheduleOK(t *testing.T) {
 		select {
 		case <-fired:
 		case <-time.After(5 * time.Second):
-			t.Fatalf("fired %d times in 5s, expected at least 3", atomic.LoadInt32(&ops))
+			t.Fatalf("fired %d times in 5s, expected at least 3", ops.Load())
 		}
 	}
 	s.stop()
 
-	settled := atomic.LoadInt32(&ops)
+	settled := ops.Load()
 	time.Sleep(50 * time.Millisecond)
-	assert.Equal(t, settled, atomic.LoadInt32(&ops), "schedule kept firing after stop")
+	assert.Equal(t, settled, ops.Load(), "schedule kept firing after stop")
 }
 
 func TestNewScheduleOK(t *testing.T) {
@@ -53,7 +53,7 @@ func TestNewScheduleOK_FuncWithParams(t *testing.T) {
 	actual := newSchedule(time.Minute, f, 3, 4)
 
 	assert.NotNil(t, actual)
-	assert.Equal(t, []interface{}{3, 4}, actual.jobParams)
+	assert.Equal(t, []any{3, 4}, actual.jobParams)
 }
 
 func TestNewScheduleWithWrongFunc(t *testing.T) {

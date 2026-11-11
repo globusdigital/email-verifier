@@ -7,14 +7,14 @@ import (
 // schedule represents a job schedule
 type schedule struct {
 	stopCh    chan struct{} // stop channel to control job
-	jobFunc   interface{}   //  schedule job handle function
-	jobParams []interface{} // params of function
+	jobFunc   any           //  schedule job handle function
+	jobParams []any         // params of function
 	ticker    *time.Ticker  // ticker sends the time with a period specified by a duration
 	running   bool          // running indicates the current running state of schedule.
 }
 
 // newSchedule returns a new schedule instance
-func newSchedule(period time.Duration, jobFunc interface{}, params ...interface{}) *schedule {
+func newSchedule(period time.Duration, jobFunc any, params ...any) *schedule {
 	return &schedule{
 		stopCh:    make(chan struct{}),
 		jobFunc:   jobFunc,

@@ -20,14 +20,14 @@ import (
 // that were never in the generated maps at all.
 func restoreDisposableDomains(t *testing.T) {
 	t.Cleanup(func() {
-		disposableSyncDomains.Range(func(key, _ interface{}) bool {
+		disposableSyncDomains.Range(func(key, _ any) bool {
 			disposableSyncDomains.Delete(key)
 			return true
 		})
 		for d := range disposableDomains {
 			disposableSyncDomains.Store(d, struct{}{})
 		}
-		additionalDisposableDomains.Range(func(key, _ interface{}) bool {
+		additionalDisposableDomains.Range(func(key, _ any) bool {
 			additionalDisposableDomains.Delete(key)
 			return true
 		})
@@ -117,7 +117,7 @@ func TestAddDisposableDomainsIsConcurrentSafe(t *testing.T) {
 	// map write, so the race is unchanged, but neither map grows. An adder that
 	// keeps adding makes every refresh walk a longer map, and that quadratic
 	// cost lands only once the bug is fixed and nothing crashes early.
-	disposableSyncDomains.Range(func(key, _ interface{}) bool {
+	disposableSyncDomains.Range(func(key, _ any) bool {
 		disposableSyncDomains.Delete(key)
 		return true
 	})
@@ -138,28 +138,24 @@ func TestAddDisposableDomainsIsConcurrentSafe(t *testing.T) {
 	deadline := time.Now().Add(500 * time.Millisecond)
 	var wg sync.WaitGroup
 
-	wg.Add(1)
-	go func() { // stands in for a caller adding domains as it goes
-		defer wg.Done()
+	wg.Go(func() { // stands in for a caller adding domains as it goes
 		for time.Now().Before(deadline) {
 			verifier.AddDisposableDomains([]string{"churned.example"})
 		}
-	}()
+	})
 
 	// Reported after Wait rather than asserted in the goroutine: require calls
 	// t.FailNow, which only works on the goroutine running the test. Single
 	// writer, and Wait orders the read after it.
 	var refreshErr error
 
-	wg.Add(1)
-	go func() { // stands in for the schedule goroutine
-		defer wg.Done()
+	wg.Go(func() { // stands in for the schedule goroutine
 		for time.Now().Before(deadline) {
 			if refreshErr = updateDisposableDomains(srv.URL); refreshErr != nil {
 				return
 			}
 		}
-	}()
+	})
 
 	wg.Wait()
 	require.NoError(t, refreshErr)

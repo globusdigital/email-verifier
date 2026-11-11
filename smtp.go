@@ -175,7 +175,7 @@ func newSMTPClient(ctx context.Context, domain, proxyURI string, resolver *net.R
 		return nil, nil, errors.New("No MX records found") //nolint:staticcheck // ST1005
 	}
 	// Create a channel for receiving response from
-	ch := make(chan interface{}, 1)
+	ch := make(chan any, 1)
 	selectedMXCh := make(chan *net.MX, 1)
 
 	// Done indicates if we're still waiting on dial responses
@@ -250,8 +250,7 @@ func preferredDialError(errs []error) error {
 // hasSMTPReply reports whether err carries a reply from an SMTP server, as
 // opposed to a network level failure.
 func hasSMTPReply(err error) bool {
-	var protoErr *textproto.Error
-	if errors.As(err, &protoErr) {
+	if _, ok := errors.AsType[*textproto.Error](err); ok {
 		return true
 	}
 	// Errors that have already been rendered to a string keep the reply code

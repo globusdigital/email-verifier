@@ -49,7 +49,7 @@ func updateDisposableDomains(source string) error {
 	}
 
 	// clear up invalid disposable domains
-	disposableSyncDomains.Range(func(key, value interface{}) bool {
+	disposableSyncDomains.Range(func(key, value any) bool {
 		if _, exists := newDomains[key.(string)]; !exists {
 			disposableSyncDomains.Delete(key)
 		}
@@ -70,7 +70,7 @@ func updateDisposableDomains(source string) error {
 
 	// add additionalDisposableDomains again -- after the allowlist, so a
 	// caller who explicitly adds one of those domains still gets it back
-	additionalDisposableDomains.Range(func(key, _ interface{}) bool {
+	additionalDisposableDomains.Range(func(key, _ any) bool {
 		disposableSyncDomains.Store(key, struct{}{})
 		return true
 	})

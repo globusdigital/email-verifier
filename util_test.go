@@ -24,13 +24,13 @@ func TestDomainToASCII_NormalDomain(t *testing.T) {
 
 func TestCallJobFuncWithParams_NoOutput(t *testing.T) {
 	f := func(a string) { fmt.Println(a) }
-	ret := callJobFuncWithParams(f, []interface{}{"testing"})
+	ret := callJobFuncWithParams(f, []any{"testing"})
 	assert.Nil(t, ret)
 }
 
 func TestCallJobFuncWithParams_WithOutput(t *testing.T) {
 	f := func(a int) int { return a * (1 + a) }
-	ret := callJobFuncWithParams(f, []interface{}{2})
+	ret := callJobFuncWithParams(f, []any{2})
 	assert.Equal(t, int64(6), ret[0].Int())
 }
 

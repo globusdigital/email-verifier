@@ -241,7 +241,7 @@ func TestEstablishProxyConnection_Schemes(t *testing.T) {
 
 	for _, scheme := range []string{"socks5", "socks5h"} {
 		t.Run(scheme+" is supported", func(tt *testing.T) {
-			_, err := establishProxyConnection("example.com:25", scheme+"://"+proxyAddr, time.Second)
+			_, err := establishProxyConnection(context.Background(), "example.com:25", scheme+"://"+proxyAddr, time.Second)
 			require.Error(tt, err)
 			require.ErrorContains(tt, err, "socks connect")
 		})
@@ -249,7 +249,7 @@ func TestEstablishProxyConnection_Schemes(t *testing.T) {
 
 	for _, scheme := range []string{"socks4", "socks4a", "http", "https"} {
 		t.Run(scheme+" is not supported", func(tt *testing.T) {
-			_, err := establishProxyConnection("example.com:25", scheme+"://"+proxyAddr, time.Second)
+			_, err := establishProxyConnection(context.Background(), "example.com:25", scheme+"://"+proxyAddr, time.Second)
 			require.ErrorContains(tt, err, "proxy: unknown scheme: "+scheme)
 		})
 	}
@@ -266,7 +266,7 @@ func TestEstablishProxyConnection_DialerWithoutContext(t *testing.T) {
 	})
 
 	// Used to panic on the proxy.ContextDialer assertion.
-	conn, err := establishProxyConnection("example.com:25", "emailverifiertest://127.0.0.1:1080", time.Second)
+	conn, err := establishProxyConnection(context.Background(), "example.com:25", "emailverifiertest://127.0.0.1:1080", time.Second)
 	assert.Nil(t, conn)
 	require.ErrorIs(t, err, wantErr)
 }
@@ -284,7 +284,7 @@ func TestEstablishProxyConnection_DialerWithoutContextTimesOut(t *testing.T) {
 	})
 
 	start := time.Now()
-	conn, err := establishProxyConnection("example.com:25", "emailverifierslow://127.0.0.1:1080", 50*time.Millisecond)
+	conn, err := establishProxyConnection(context.Background(), "example.com:25", "emailverifierslow://127.0.0.1:1080", 50*time.Millisecond)
 	assert.Nil(t, conn)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.Less(t, time.Since(start), time.Second)

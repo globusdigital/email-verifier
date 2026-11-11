@@ -14,6 +14,8 @@ var (
 	// like, and read by updateDisposableDomains on the schedule goroutine that
 	// EnableAutoUpdateDisposable starts.
 	additionalDisposableDomains sync.Map
+
+	blockedExchangeDomains sync.Map // concurrent safe map to store blocked mail exchanger/mx target domains data
 )
 
 // IsRoleAccount checks if username is a role-based account
@@ -30,5 +32,12 @@ func (v *Verifier) IsFreeDomain(domain string) bool {
 func (v *Verifier) IsDisposable(domain string) bool {
 	domain = domainToASCII(domain)
 	_, found := disposableSyncDomains.Load(domain)
+	return found
+}
+
+// IsBlockedExchangeDomain checks if domain in the ANSWER SECTION of a MX query is blocked.
+func (v *Verifier) IsBlockedExchangeDomain(domain string) bool {
+	domain = domainToASCII(domain)
+	_, found := blockedExchangeDomains.Load(domain)
 	return found
 }

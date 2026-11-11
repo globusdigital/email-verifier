@@ -17,6 +17,7 @@ type Verifier struct {
 	catchAllCheckEnabled   bool // SMTP catchAll check enabled or disabled (enabled by default)
 	domainSuggestEnabled   bool // whether suggest a most similar correct domain or not (disabled by default)
 	gravatarCheckEnabled   bool // gravatar check enabled or disabled (disabled by default)
+	asciiOnlyCheckEnabled  bool // email address consists only of ascii chars check enabled or disabled (disabled by default)
 	TopLevelDomainDisabled bool
 	fromEmail              string                     // name to use in the `EHLO:` SMTP command, defaults to "user@example.org"
 	helloName              string                     // email to use in the `MAIL FROM:` SMTP command. defaults to `localhost`
@@ -24,7 +25,8 @@ type Verifier struct {
 	proxyURI               string                     // use a SOCKS5 proxy to verify the email,
 	apiVerifiers           map[string]smtpAPIVerifier // per-vendor API verifiers; no built-in vendors currently, contributions are welcomed.
 	resolver               *net.Resolver              // resolver used to perform MX and SMTP DNS lookups; nil means net.DefaultResolver, read at call time
-
+	mxCache                MXCacher
+	mxCacheTTL             time.Duration
 	// Timeouts
 	connectTimeout   time.Duration // Timeout for establishing connections
 	operationTimeout time.Duration // Timeout for SMTP operations (e.g., EHLO, MAIL FROM, etc.)
@@ -32,17 +34,18 @@ type Verifier struct {
 
 // Result is the result of Email Verification
 type Result struct {
-	Email        string    `json:"email"`          // passed email address
-	Reachable    string    `json:"reachable"`      // an enumeration to describe whether the recipient address is real
-	Syntax       Syntax    `json:"syntax"`         // details about the email address syntax
-	SMTP         *SMTP     `json:"smtp"`           // details about the SMTP response of the email
-	Gravatar     *Gravatar `json:"gravatar"`       // whether have gravatar for the email
-	Suggestion   string    `json:"suggestion"`     // domain suggestion when domain is misspelled
-	Disposable   bool      `json:"disposable"`     // is this a DEA (disposable email address)
-	RoleAccount  bool      `json:"role_account"`   // is account a role-based account
-	Free         bool      `json:"free"`           // is domain a free email domain
-	HasMxRecords bool      `json:"has_mx_records"` // whether MX-Records for the domain
-	TLDExists    bool      `json:"tld_exists"`     // whether the TLD exists
+	Email               string    `json:"email"`                  // passed email address
+	Reachable           string    `json:"reachable"`              // an enumeration to describe whether the recipient address is real
+	Syntax              Syntax    `json:"syntax"`                 // details about the email address syntax
+	SMTP                *SMTP     `json:"smtp"`                   // details about the SMTP response of the email
+	Gravatar            *Gravatar `json:"gravatar"`               // whether have gravatar for the email
+	Suggestion          string    `json:"suggestion"`             // domain suggestion when domain is misspelled
+	Disposable          bool      `json:"disposable"`             // is this a DEA (disposable email address)
+	RoleAccount         bool      `json:"role_account"`           // is account a role-based account
+	Free                bool      `json:"free"`                   // is domain a free email domain
+	HasMxRecords        bool      `json:"has_mx_records"`         // whether MX-Records for the domain
+	HasMxRecordsBlocked bool      `json:"has_mx_records_blocked"` // returns true if at least one MX record is blocked.
+	TLDExists           bool      `json:"tld_exists"`             // whether the TLD exists
 }
 
 // init loads disposable_domain meta data to disposableSyncDomains which are safe for concurrent use
@@ -130,6 +133,7 @@ func (v *Verifier) Verify(ctx context.Context, email string) (*Result, error) {
 			return fmt.Errorf("CheckMX failed: %w", err)
 		}
 		ret.HasMxRecords = mx.HasMXRecord
+		ret.HasMxRecordsBlocked = len(mx.BlockedMXTargets) > 0
 		return nil
 	})
 
@@ -181,6 +185,16 @@ func (v *Verifier) AddDisposableDomains(domains []string) *Verifier {
 	return v
 }
 
+// AddBlockedExchangeDomains adds domains to block the the mail exchanger
+// (result from the MX query), also called the mail server hostname or the MX
+// target. RFC 1035 names that field EXCHANGE.
+func (v *Verifier) AddBlockedExchangeDomains(domains []string) *Verifier {
+	for _, d := range domains {
+		blockedExchangeDomains.Store(d, struct{}{})
+	}
+	return v
+}
+
 // EnableGravatarCheck enables check gravatar,
 // we don't check gravatar by default
 func (v *Verifier) EnableGravatarCheck() *Verifier {
@@ -191,6 +205,20 @@ func (v *Verifier) EnableGravatarCheck() *Verifier {
 // DisableGravatarCheck disables check gravatar,
 func (v *Verifier) DisableGravatarCheck() *Verifier {
 	v.gravatarCheckEnabled = false
+	return v
+}
+
+// EnableASCIIOnlyCheck makes ParseAddress reject any email address that
+// contains a non-ASCII character, in the local part or the domain,
+// we don't check this by default.
+func (v *Verifier) EnableASCIIOnlyCheck() *Verifier {
+	v.asciiOnlyCheckEnabled = true
+	return v
+}
+
+// DisableASCIIOnlyCheck disables the ASCII-only check.
+func (v *Verifier) DisableASCIIOnlyCheck() *Verifier {
+	v.asciiOnlyCheckEnabled = false
 	return v
 }
 
@@ -338,6 +366,17 @@ func (v *Verifier) ConnectTimeout(timeout time.Duration) *Verifier {
 // OperationTimeout sets the timeout for SMTP operations (e.g., EHLO, MAIL FROM, etc.).
 func (v *Verifier) OperationTimeout(timeout time.Duration) *Verifier {
 	v.operationTimeout = timeout
+	return v
+}
+
+// WithMXCache sets the MX cache to use for caching MX lookups.
+// Default TTL one hour.
+func (v *Verifier) WithMXCache(mxCache MXCacher, ttl time.Duration) *Verifier {
+	v.mxCache = mxCache
+	if ttl <= 0 {
+		ttl = time.Hour
+	}
+	v.mxCacheTTL = ttl
 	return v
 }
 

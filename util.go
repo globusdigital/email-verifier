@@ -30,7 +30,7 @@ func domainToASCII(domain string) string {
 }
 
 // callJobFuncWithParams convert jobFunc and prams to a specific function and call it
-func callJobFuncWithParams(jobFunc interface{}, params []interface{}) []reflect.Value {
+func callJobFuncWithParams(jobFunc any, params []any) []reflect.Value {
 	typ := reflect.TypeOf(jobFunc)
 	if typ.Kind() != reflect.Func {
 		return nil

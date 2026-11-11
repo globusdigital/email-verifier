@@ -118,9 +118,10 @@ func TestCheckEmail_ErrorSyntax(t *testing.T) {
 	expected := Result{
 		Email: email,
 		Syntax: Syntax{
-			Username: username,
-			Domain:   "",
-			Valid:    false,
+			Username:      username,
+			Domain:        "",
+			Valid:         false,
+			InvalidReason: "email not valid, regex",
 		},
 		HasMxRecords: false,
 		Reachable:    reachableUnknown,

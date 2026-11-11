@@ -68,10 +68,6 @@ func (v *Verifier) CheckSMTP(ctx context.Context, domain, username string) (*SMT
 // checkSMTP is CheckSMTP plus what the catch-all probe concluded. Verify needs
 // that to tell a domain which accepts every address from one we could not ask.
 func (v *Verifier) checkSMTP(ctx context.Context, domain, username string) (*SMTP, catchAllOutcome, error) {
-	if !v.smtpCheckEnabled {
-		return nil, catchAllNotRun, nil
-	}
-
 	var ret SMTP
 	var err error
 	catchAll := catchAllNotRun

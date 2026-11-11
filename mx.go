@@ -36,10 +36,6 @@ func (v *Verifier) CheckMX(ctx context.Context, domain string) (*Mx, error) {
 		return nil, fmt.Errorf("TLD domain %q does not exist", domain)
 	}
 
-	if !v.mxCheckEnabled {
-		return &Mx{}, nil
-	}
-
 	mxs, err := v.lookupMX(ctx, domain)
 	if err != nil && len(mxs) == 0 {
 		return nil, err

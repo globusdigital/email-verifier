@@ -122,52 +122,55 @@ func (v *Verifier) Verify(ctx context.Context, email string) (*Result, error) {
 		g, ctx = errgroup.WithContext(ctx)
 	}
 
-	g.Go(func() error {
-		mx, err := v.CheckMX(ctx, syntax.Domain)
-		if err != nil {
-			errStr := err.Error()
-			if insContains(errStr, "no such host") {
-				ret.Reachable = reachableNo
-				return newLookupError(ErrNoSuchHost, errStr).withCause(err)
+	if v.mxCheckEnabled {
+		g.Go(func() error {
+			mx, err := v.CheckMX(ctx, syntax.Domain)
+			if err != nil {
+				errStr := err.Error()
+				if insContains(errStr, "no such host") {
+					ret.Reachable = reachableNo
+					return newLookupError(ErrNoSuchHost, errStr).withCause(err)
+				}
+				return fmt.Errorf("CheckMX failed: %w", err)
 			}
-			return fmt.Errorf("CheckMX failed: %w", err)
-		}
-		ret.HasMxRecords = mx.HasMXRecord
-		ret.HasMxRecordsBlocked = len(mx.BlockedMXTargets) > 0
-		return nil
-	})
+			ret.HasMxRecords = mx.HasMXRecord
+			ret.HasMxRecordsBlocked = len(mx.BlockedMXTargets) > 0
+			return nil
+		})
+	}
+	if v.smtpCheckEnabled {
+		g.Go(func() error {
+			smtp, catchAll, err := v.checkSMTP(ctx, syntax.Domain, syntax.Username)
 
-	g.Go(func() error {
-		smtp, catchAll, err := v.checkSMTP(ctx, syntax.Domain, syntax.Username)
+			// Kept whether or not the check succeeded. A failed exchange still says how
+			// far it got, which is the difference between a host that never answered and
+			// one that answered and refused our sender.
+			ret.SMTP = smtp
+			if err != nil {
+				return fmt.Errorf("CheckSMTP failed: %w", err)
+			}
+			ret.Reachable = v.calculateReachable(smtp, catchAll)
 
-		// Kept whether or not the check succeeded. A failed exchange still says how
-		// far it got, which is the difference between a host that never answered and
-		// one that answered and refused our sender.
-		ret.SMTP = smtp
-		if err != nil {
-			return fmt.Errorf("CheckSMTP failed: %w", err)
-		}
-		ret.Reachable = v.calculateReachable(smtp, catchAll)
+			return nil
+		})
+	}
+	if v.gravatarCheckEnabled {
+		g.Go(func() error {
+			gravatar, err := v.CheckGravatar(ctx, email)
+			if err != nil {
+				return fmt.Errorf("CheckGravatar failed: %w", err)
+			}
+			ret.Gravatar = gravatar
 
-		return nil
-	})
-
-	g.Go(func() error {
-		gravatar, err := v.CheckGravatar(ctx, email)
-		if err != nil {
-			return fmt.Errorf("CheckGravatar failed: %w", err)
-		}
-		ret.Gravatar = gravatar
-
-		return nil
-	})
-
-	g.Go(func() error {
-		if v.domainSuggestEnabled {
+			return nil
+		})
+	}
+	if v.domainSuggestEnabled {
+		g.Go(func() error {
 			ret.Suggestion = v.SuggestDomain(syntax.Domain)
-		}
-		return nil
-	})
+			return nil
+		})
+	}
 
 	if err := g.Wait(); err != nil {
 		return &ret, err

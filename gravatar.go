@@ -18,10 +18,6 @@ type Gravatar struct {
 // CheckGravatar will return the Gravatar records for the given email.
 // Might return nil,nil on success when gravatar is disabled.
 func (v *Verifier) CheckGravatar(ctx context.Context, email string) (*Gravatar, error) {
-	if !v.gravatarCheckEnabled {
-		return nil, nil
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	emailMd5, err := getMD5Hash(trimLower(email))

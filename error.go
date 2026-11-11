@@ -113,7 +113,8 @@ var blockedKeywords = []string{
 // newlines, so Error() is a debug form rather than the reply. Errors carrying no
 // reply of their own fall back to it.
 func replyText(err error) string {
-	if tp, ok := errors.AsType[*textproto.Error](err); ok {
+	var tp *textproto.Error
+	if errors.As(err, &tp) {
 		return fmt.Sprintf("%03d %s", tp.Code, tp.Msg)
 	}
 	return err.Error()
@@ -124,7 +125,8 @@ func replyText(err error) string {
 // a quote, so the rendered form serves only replies that reach us already
 // flattened -- ParseSMTPError is exported and takes those too.
 func enhancedCodeOf(err error) string {
-	if tp, ok := errors.AsType[*textproto.Error](err); ok {
+	var tp *textproto.Error
+	if errors.As(err, &tp) {
 		if m := enhancedCodeInMsgPattern.FindStringSubmatch(tp.Msg); len(m) > 1 {
 			return m[1]
 		}

@@ -250,7 +250,8 @@ func preferredDialError(errs []error) error {
 // hasSMTPReply reports whether err carries a reply from an SMTP server, as
 // opposed to a network level failure.
 func hasSMTPReply(err error) bool {
-	if _, ok := errors.AsType[*textproto.Error](err); ok {
+	var tp *textproto.Error
+	if errors.As(err, &tp) {
 		return true
 	}
 	// Errors that have already been rendered to a string keep the reply code
